@@ -15,5 +15,5 @@ Uses the following tools:
 1. Clone out this repository
 2. Install dependencies with Poetry `poetry install`
 3. Enter the poetry environment `poetry shell`
-4. Run the application from the src folder `python3 sutpodab scan https://hostname/path/to/your/openapi.json`
+4. Run the application from the src folder `python3 -m sutpodab scan https://hostname/path/to/your/openapi.json`
 
