@@ -112,7 +112,8 @@ class Operation(odin.Resource):
     )
     tags: List[str] = odin.TypedListField(odin.StringField())
     security: List[Dict[str, Any]] = odin.TypedListField(
-        odin.TypedDictField(odin.ListField())
+        odin.TypedDictField(odin.ListField()),
+        null=True,
     )
 
     @property
