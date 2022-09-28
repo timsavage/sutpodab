@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "badoptus"
+version = "0.1.0"
+description = ""
+authors = ["Tim Savage <tim@savage.company>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pyapp = "^4.10.0"
+odin = "^1.8.1"
+httpx = "^0.23.0"
+Faker = "^15.0.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
