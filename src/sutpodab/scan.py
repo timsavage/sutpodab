@@ -72,13 +72,14 @@ def determine_endpoints(
 
 
 class Category(Enum):
-    Ok = "✅"
+    Good = "✅"
     Warning = "😐"
     Error = "🛑"
     Critical = "😬"
+    Failed = "⚪"
 
 
-Report = Tuple[Category, int, httpx.URL, Optional[str]]
+Report = Tuple[Category, str, httpx.URL, int, Optional[str]]
 
 
 def _categorize(response: httpx.Response) -> Report:
@@ -87,20 +88,47 @@ def _categorize(response: httpx.Response) -> Report:
     """
     status = response.status_code
     if status == 401:
-        return Category.Ok, status, response.url, None
+        return (
+            Category.Good,
+            response.request.method,
+            response.url,
+            status,
+            None,
+        )
     elif 200 <= status < 300:
-        return Category.Critical, status, response.url, response.text
+        return (
+            Category.Critical,
+            response.request.method,
+            response.url,
+            status,
+            response.text,
+        )
     elif 500 <= status:
-        return Category.Error, status, response.url, response.text
+        return (
+            Category.Error,
+            response.request.method,
+            response.url,
+            status,
+            response.text,
+        )
     else:
-        return Category.Warning, status, response.url, response.text
+        return (
+            Category.Warning,
+            response.request.method,
+            response.url,
+            status,
+            response.text,
+        )
 
 
 def _check_endpoint(method: Method, endpoint_url: httpx.URL, body) -> Report:
     """
     Parallel HTTP request
     """
-    response = httpx.request(method.value, endpoint_url, data=body)
+    try:
+        response = httpx.request(method.value, endpoint_url, data=body)
+    except httpx.TimeoutException as ex:
+        return Category.Failed, method.value, endpoint_url, 0, str(ex)
     return _categorize(response)
 
 
@@ -115,13 +143,21 @@ def print_report(results: Sequence[Report]):
     summary = defaultdict(int)
 
     print("\nResults\n-------\n")
-    for category, status, url, text in results:
+    for category, method, url, status, text in results:
         summary[category] += 1
-        if category is Category.Ok:
-            print(f"{category.value}\t{status}\t{url}\n")
+        if category is Category.Good:
+            print(f"{category.value}\t{status}\t{method} {url}\n")
         else:
-            print(f"{category.value}\t{status}\t{url}\n\t{text}\n")
+            print(f"{category.value}\t{status}\t{method} {url}\n\t{text}\n")
 
     print("\nSummary\n-------\n")
     for category in Category:
-        print(f"{category.value} {category.name}\t{summary[category]}")
+        print(f"{category.value}  {category.name}\t{summary[category]}")
+
+    if summary[Category.Critical] or summary[Category.Error]:
+        print("\n👎 Action needed potential missing authentication!")
+        return 1
+    elif summary[Category.Warning] or summary[Category.Failed]:
+        print("\nCould not verify authentication on all operations.")
+    else:
+        print("\n👍 Looks good!")
