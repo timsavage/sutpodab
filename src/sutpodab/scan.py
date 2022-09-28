@@ -1,5 +1,6 @@
 import logging
-from typing import Tuple, Iterable, Any, Optional
+from collections import defaultdict
+from typing import Tuple, Iterable, Any
 
 import httpx
 import faker
@@ -80,14 +81,26 @@ def check_endpoints(operations: Iterable[Tuple[str, httpx.URL]]):
     """
     Check the end points
     """
-    checks = Pool()
-    for result in checks.starmap(_check_endpoint, operations):
+    results = Pool().starmap(_check_endpoint, operations)
+    report = defaultdict(int)
+
+    print("\nResults\n-------\n\n")
+    for result in results:
         status = result.status_code
         if status == 401:
-            print(f"✅ {result.url}\t{result.status_code}")
+            print(f"✅\t{result.status_code}\t{result.url}\n")
+            report["ok"] += 1
         elif 200 <= status < 300:
-            print(f"😬 {result.url}\t{result.status_code}")
+            print(f"😬\t{result.status_code}\t{result.url}\n")
+            report["bad"] += 1
         elif 500 <= status:
-            print(f"🛑 {result.url}\t{result.status_code} - {result.read()}")
+            print(f"🛑\t{result.status_code}\t{result.url}\n\t{result.text}\n")
+            report["error"] += 1
         else:
-            print(f"- {result.url}\t{result.status_code} - {result.read()}")
+            print(f"😐\t{result.status_code}\t{result.url}\n\t{result.text}\n")
+            report["warn"] += 1
+
+    print(f"✅: Ok\t{report['ok']}")
+    print(f"😬: Critical\t{report['bad']}")
+    print(f"🛑: Error\t{report['error']}")
+    print(f"😐: Warning\t{report['warn']}")
