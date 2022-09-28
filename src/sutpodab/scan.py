@@ -1,6 +1,7 @@
 import logging
 from collections import defaultdict
-from typing import Tuple, Iterable, Any
+from enum import Enum
+from typing import Tuple, Iterable, Any, Optional, Sequence
 
 import httpx
 import faker
@@ -70,37 +71,57 @@ def determine_endpoints(
                 yield request
 
 
-def _check_endpoint(method: Method, endpoint_url: httpx.URL, body):
+class Category(Enum):
+    Ok = "✅"
+    Warning = "😐"
+    Error = "🛑"
+    Critical = "😬"
+
+
+Report = Tuple[Category, int, httpx.URL, Optional[str]]
+
+
+def _categorize(response: httpx.Response) -> Report:
+    """
+    Categorize the response
+    """
+    status = response.status_code
+    if status == 401:
+        return Category.Ok, status, response.url, None
+    elif 200 <= status < 300:
+        return Category.Critical, status, response.url, response.text
+    elif 500 <= status:
+        return Category.Error, status, response.url, response.text
+    else:
+        return Category.Warning, status, response.url, response.text
+
+
+def _check_endpoint(method: Method, endpoint_url: httpx.URL, body) -> Report:
     """
     Parallel HTTP request
     """
-    return httpx.request(method.value, endpoint_url, data=body)
+    response = httpx.request(method.value, endpoint_url, data=body)
+    return _categorize(response)
 
 
-def check_endpoints(operations: Iterable[Tuple[str, httpx.URL]]):
+def check_endpoints(operations: Iterable[Tuple[str, httpx.URL]]) -> Sequence[Report]:
     """
     Check the end points
     """
-    results = Pool().starmap(_check_endpoint, operations)
-    report = defaultdict(int)
+    return Pool().starmap(_check_endpoint, operations)
 
-    print("\nResults\n-------\n\n")
-    for result in results:
-        status = result.status_code
-        if status == 401:
-            print(f"✅\t{result.status_code}\t{result.url}\n")
-            report["ok"] += 1
-        elif 200 <= status < 300:
-            print(f"😬\t{result.status_code}\t{result.url}\n")
-            report["bad"] += 1
-        elif 500 <= status:
-            print(f"🛑\t{result.status_code}\t{result.url}\n\t{result.text}\n")
-            report["error"] += 1
+
+def print_report(results: Sequence[Report]):
+    summary = defaultdict(int)
+
+    print("\nResults\n-------\n")
+    for category, status, url, text in results:
+        summary[category] += 1
+        if category is Category.Ok:
+            print(f"{category.value}\t{status}\t{url}\n")
         else:
-            print(f"😐\t{result.status_code}\t{result.url}\n\t{result.text}\n")
-            report["warn"] += 1
+            print(f"{category.value}\t{status}\t{url}\n\t{text}\n")
 
-    print(f"✅: Ok\t{report['ok']}")
-    print(f"😬: Critical\t{report['bad']}")
-    print(f"🛑: Error\t{report['error']}")
-    print(f"😐: Warning\t{report['warn']}")
+    print("\nSummary\n-------\n")
+    for category in Category:
+        print(f"{category.value} {category.name}\t{summary[category]}")

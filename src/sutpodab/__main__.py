@@ -11,11 +11,12 @@ def scan(schema_url: URL):
     """
     Scan an OpenAPI schema and report all endpoints
     """
-    from sutpodab.scan import read_schema, determine_endpoints, check_endpoints
+    from sutpodab.scan import read_schema, determine_endpoints, check_endpoints, print_report
 
     api_schema = read_schema(schema_url)
     endpoints = determine_endpoints(schema_url, api_schema)
-    check_endpoints(endpoints)
+    results = check_endpoints(endpoints)
+    print_report(results)
 
 
 if __name__ == "__main__":
