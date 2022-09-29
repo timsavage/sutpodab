@@ -1,3 +1,8 @@
+"""
+OpenAPI Schema
+
+This is not a complete schema but enough for the purposes of this tool
+"""
 from enum import Enum
 from typing import Dict, List, Any
 
