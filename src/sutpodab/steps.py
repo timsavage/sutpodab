@@ -46,7 +46,11 @@ def fetch_and_parse_schema(schema_url: URL) -> OpenAPI:
 
 
 def _request_builder(
-    schema_url: httpx.URL, path: str, method: Method, operation: Operation
+    schema_url: httpx.URL,
+    path: str,
+    method: Method,
+    operation: Operation,
+    api_schema: OpenAPI,
 ) -> APIRequest:
     """
     Scan operation to determine API request
@@ -62,7 +66,7 @@ def _request_builder(
     data = (
         None
         if operation.request_body is None
-        else request_mock.mock_body(operation.request_body)
+        else request_mock.mock_body(operation.request_body, api_schema)
     )
 
     return APIRequest(method.value, request_url, data, operation.auth_required)
@@ -78,9 +82,10 @@ def determine_requests(
     requests = []
 
     for path, methods in open_api_schema.paths.items():
-        for method, operation in methods.items():
-            if request := _request_builder(schema_url, path, method, operation):
-                requests.append(request)
+        requests.extend(
+            _request_builder(schema_url, path, method, operation, open_api_schema)
+            for method, operation in methods.items()
+        )
 
     return requests
 

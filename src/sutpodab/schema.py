@@ -4,12 +4,41 @@ OpenAPI Schema
 This is not a complete schema but enough for the purposes of this tool
 """
 from enum import Enum
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import Dict, List, Any, Optional
 
 import odin
+from odin.traversal import TraversalPath, NotSupplied
 
 
-class Info(odin.Resource):
+class OpenAPISchema(odin.Resource):
+    class Meta:
+        abstract = True
+        namespace = "io.swagger.v3"
+
+
+class Ref:
+    __slots__ = ("_path",)
+
+    def __init__(self, *args):
+        path = Path(*args)
+        if path.parts[0] != "#":
+            raise ValueError("Only absolute refs are supported")
+        self._path = path.parts[1:]
+
+    def __repr__(self):
+        return f"#/{'/'.join(self._path)}"
+
+    def resolve(self, obj):
+        for atom in self._path:
+            if isinstance(obj, dict):
+                obj = obj[atom]
+            else:
+                obj = getattr(obj, atom)
+        return obj
+
+
+class Info(OpenAPISchema):
     """
     The object provides metadata about the API. The metadata MAY be used by
     the clients if needed, and MAY be presented in editing or documentation
@@ -24,7 +53,7 @@ class Info(odin.Resource):
     version: str = odin.StringField()
 
 
-class Server(odin.Resource):
+class Server(OpenAPISchema):
     """
     An object representing a Server.
     """
@@ -40,7 +69,7 @@ class Location(Enum):
     Cookie = "cookie"
 
 
-class Schema(odin.Resource):
+class Schema(OpenAPISchema):
     """
     The Schema Object allows the definition of input and output data types.
     These types can be objects, but also primitives and arrays. This object is
@@ -50,7 +79,7 @@ class Schema(odin.Resource):
     type: str = odin.StringField()
     format: str = odin.StringField(null=True)
     default: str = odin.StringField(null=True)
-    description: str = odin.StringField(null=True)
+    description: Optional[str] = odin.StringField(null=True)
 
     title: str = odin.StringField(name="title", null=True)
     multiple_of: str = odin.StringField(name="multipleOf", null=True)
@@ -70,40 +99,40 @@ class Schema(odin.Resource):
     enum: List[str] = odin.TypedListField(odin.StringField(), null=True)
 
 
-class Parameter(odin.Resource):
+class Parameter(OpenAPISchema):
     """
     Describes a single operation parameter.
     """
 
     name: str = odin.StringField()
     location: Location = odin.EnumField(Location, name="in")
-    description: str = odin.StringField(null=True)
+    description: Optional[str] = odin.StringField(null=True)
     required: bool = odin.BooleanField(default=False, use_default_if_not_provided=True)
     schema: Schema = odin.DictAs(Schema)
 
 
-class RequestBody(odin.Resource):
+class RequestBody(OpenAPISchema):
     """
     Describes a single request body.
     """
 
-    description: str = odin.StringField(null=True)
+    description: Optional[str] = odin.StringField(null=True)
     required: bool = odin.BooleanField()
     content = odin.DictField()
 
 
-class Response(odin.Resource):
-    description: str = odin.StringField()
+class Response(OpenAPISchema):
+    description: Optional[str] = odin.StringField(null=True)
 
 
-class Operation(odin.Resource):
+class Operation(OpenAPISchema):
     """
     Describes a single API operation on a path.
     """
 
     id: str = odin.StringField(name="operationId", key=True)
     summary: str = odin.StringField()
-    description: str = odin.StringField()
+    description: Optional[str] = odin.StringField(null=True)
     parameters: List[Parameter] = odin.TypedListField(
         odin.DictAs(Parameter),
     )
